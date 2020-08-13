@@ -61,55 +61,48 @@ client.on('message', (topic, message) => {
   if (topic.startsWith('unifi/camera/motion/')) {
     const splitMessage = topic.split('unifi/camera/motion/')[1].split('/');
     const cameraName = splitMessage[0];
-    const event = splitMessage[1];
-    if (event === 'state') {
-      const parsedMessage = message.toString();
-      const {
-        mac: cameraMac,
-        isMotionDetected,
-        prePaddingSecs,
-        postPaddingSecs,
-        timestamp
-      } = JSON.parse(parsedMessage);
-      return processMotionEvent({ isMotionDetected, cameraMac, timestamp, prePaddingSecs, postPaddingSecs });
+    const isMotionDetected = message.toString();
+    if (isMotionDetected === '0' || isMotionDetected === '1' ) {
+      const timestamp = Date.now();
+      return processMotionEvent({ isMotionDetected, cameraName, timestamp });
     }
   }
   console.warn('[controller] No handler for topic: %s', topic);
 });
 
-const processMotionEvent = async ({ isMotionDetected, cameraMac, timestamp, prePaddingSecs, postPaddingSecs }) => {
+const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) => {
   if (process.env.VERBOSE == true && process.env.NODE_ENV === 'development') {
     console.info(`[controller] Processing motion event with status: ${isMotionDetected}`);
   }
-  if (isMotionDetected) {
+  if (isMotionDetected === '1') {
     console.info('[controller] Processing motion start event');
-    if (cameraDownloadQueue[cameraMac]) {
+    if (cameraDownloadQueue[cameraName]) {
       console.info('[controller] Found previous motion event; resetting timer');
-      clearTimeout(cameraDownloadQueue[cameraMac]);
-      delete cameraDownloadQueue[cameraMac];
-    } else if (!cameraStartTimeByMac[cameraMac]) {
-      cameraStartTimeByMac[cameraMac] = timestamp;
+      clearTimeout(cameraDownloadQueue[cameraName]);
+      delete cameraDownloadQueue[cameraName];
+    } else if (!cameraStartTimeByMac[cameraName]) {
+      cameraStartTimeByMac[cameraName] = timestamp;
       if (process.env.NODE_ENV === 'development') {
         console.info(`[controller] Set start time: ${readableTime(timestamp)}`);
       }
     }
 
-  } else if (cameraStartTimeByMac[cameraMac] && !isMotionDetected) {
+  } else if (cameraStartTimeByMac[cameraName] && isMotionDetected === '0') {
     console.info('[controller] Processing motion end event');
-    const startTimestamp = cameraStartTimeByMac[cameraMac];
+    const startTimestamp = cameraStartTimeByMac[cameraName];
     if (!startTimestamp) {
       return;
     }
-    if (!cameraDownloadQueue[cameraMac]) {
+    if (!cameraDownloadQueue[cameraName]) {
       // timeout to see if new movement is started
-      cameraDownloadQueue[cameraMac] = setTimeout(() => {
+      cameraDownloadQueue[cameraName] = setTimeout(() => {
         console.info('[controller] Motion end event finished; processing video download');
         if (process.env.NODE_ENV === 'development') {
           console.info(`[controller] Do download for start time: ${readableTime(startTimestamp)}`);
         }
-        delete cameraStartTimeByMac[cameraMac];
-        delete cameraDownloadQueue[cameraMac];
-        api.processDownload({ cameraMac, start: startTimestamp - prePaddingSecs * 1000, end: timestamp + postPaddingSecs * 1000 });
+        delete cameraStartTimeByMac[cameraName];
+        delete cameraDownloadQueue[cameraName];
+        api.processDownload({ cameraName, start: startTimestamp, end: timestamp });
       }, motionRecordingGracePeriod);
     }
 

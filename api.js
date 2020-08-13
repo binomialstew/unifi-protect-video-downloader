@@ -19,20 +19,26 @@ module.exports = class Api {
         this.downloadPath = downloadPath;
     }
 
-    async processDownload({cameraMac, start, end}) {
+    async processDownload({cameraName, start, end}) {
         await sleep(5000); // Allow unifi time to save video before initiating download
         const token = await this.getToken();
 
         console.log('[api] ' + token);
 
-        const camera = await this.getCameraFromMac({token, cameraMac});
-
-
+        const {
+            id,
+            mac,
+            name,
+            recordingSettings: {
+                prePaddingSecs,
+                postPaddingSecs
+            }
+        } = await this.getCameraFromName({token, cameraName});
         while (start < end) {
             // break up videos longer than 10 minutes
-            const calculatedEnd = Math.min(end, start + (10 * 60 * 1000));
-
-            this.downloadVideo({token, camera, start, end: calculatedEnd});
+            const calculatedEnd = Math.min(end + postPaddingSecs * 1000, start + (10 * 60 * 1000));
+            const calculatedStart = start - prePaddingSecs * 1000;
+            this.downloadVideo({token, camera: { id, name }, start: calculatedStart, end: calculatedEnd});
 
             start += 1 + (10 * 60 * 1000);
         }
@@ -54,7 +60,7 @@ module.exports = class Api {
     /**
      *
      */
-    async getCameraFromMac({token, cameraMac}) {
+    async getCameraFromName({token, cameraName}) {
 
         const headers = {
             'Authorization': `Bearer ${token}`,
@@ -64,13 +70,13 @@ module.exports = class Api {
 
         const response = await request.get(`${this.host}/api/cameras`, requestConfig);
 
-        const camera = response.data.find(cam => cam.mac === cameraMac);
+        const camera = response.data.find(cam => cam.name.toLowerCase() === cameraName);
 
         if (!camera) {
-            throw new Error('Unable to find camera with mac: ' + cameraMac, response);
+            throw new Error('Unable to find camera with name: ' + cameraName, response);
         }
 
-       return {id: camera.id, name: camera.name};
+       return camera
     }
 
     async downloadVideo({token, camera, start, end}) {
