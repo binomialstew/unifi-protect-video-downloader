@@ -2,6 +2,7 @@ const axios = require('axios');
 const https = require('https');
 const path = require('path');
 const fs = require('fs');
+const sleep = require('util').promisify(setTimeout)
 
 const request = axios.create({
     httpsAgent: new https.Agent({
@@ -19,6 +20,7 @@ module.exports = class Api {
     }
 
     async processDownload({cameraMac, start, end}) {
+        await sleep(5000); // Allow unifi time to save video before initiating download
         const token = await this.getToken();
 
         console.log('[api] ' + token);
