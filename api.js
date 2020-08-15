@@ -70,7 +70,7 @@ module.exports = class Api {
 
         const response = await request.get(`${this.host}/api/cameras`, requestConfig);
 
-        const camera = response.data.find(cam => cam.name.toLowerCase() === cameraName);
+        const camera = response.data.find(cam => cam.name.replace(/ /g, "_").toLowerCase() === cameraName);
 
         if (!camera) {
             throw new Error('Unable to find camera with name: ' + cameraName, response);
