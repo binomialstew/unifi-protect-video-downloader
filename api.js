@@ -96,7 +96,6 @@ module.exports = class Api {
     }
 
     async downloadVideo({token, camera, start, end}) {
-
         const headers = {
             'Content-Type': 'application/json',
             'Cookie': token
@@ -109,34 +108,46 @@ module.exports = class Api {
         const minute = ('' + date.getMinutes()).padStart(2, '0');
 
         const filePath = path.resolve(this.downloadPath, camera.name, year, month, day);
-        console.info(`[api] writing to file path: ${filePath}`);
+        const fileName = `${year}-${month}-${day}_${hour}.${minute}_${start}.mp4`;
+        console.info('[api] writing to file path: %s/%s', filePath, fileName);
 
         try {
             await fs.promises.access(filePath);
         } catch (e) {
-            // directory doesn't exist, create it
-            await fs.promises.mkdir(filePath, { recursive: true });
+            if (process.env.VERBOSE) {
+                console.info('[api] Directory doesn\'t exist - create it');
+            }
+            const didCreateDirectory = await fs.promises.mkdir(filePath, { recursive: true });
+            if (process.env.VERBOSE) {
+                console.info('[api] Successfully created directory: %s', didCreateDirectory);
+            }
         }
 
-        const writer = fs.createWriteStream(`${filePath}/${year}-${month}-${day}_${hour}.${minute}_${start}.mp4`);
+        const writer = fs.createWriteStream(`${filePath}/${fileName}`);
 
         const requestConfig = { headers, responseType: 'stream' };
 
         let response;
         try {
             const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`
-            console.info(`[api] video download url: ${url}`);
+            console.info(`[api] Video download url: ${url}`);
             response = await request.get(url, requestConfig);
         } catch (e) {
-            console.error('[api] unable to download video', e);
+            console.error('[api] Unable to download video', e);
             return;
         }
 
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
+            writer.on('finish', function() {
+                console.info('[api] Write success');
+                resolve();
+            });
+            writer.on('error', function(error) {
+                console.error('[api] Error: %s', error);
+                reject();
+            });
         });
     }
 }

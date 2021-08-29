@@ -8,10 +8,16 @@ require("log-timestamp");
 const mqtt = require('mqtt');
 const Api = require('./api');
 
+console.log('[controller] Verbose mode: %s', process.env.VERBOSE);
+
 const readableTime = timestamp => {
   const newDate = new Date();
   newDate.setTime(timestamp);
-  const dateString = newDate.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'long' });
+  const dateString = newDate.toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'long',
+    timeZone: process.env.TIMEZONE || 'America/New_York'
+  });
   return dateString;
 }
 
@@ -34,7 +40,7 @@ try {
     }
   });
   client.on('error', (error) => {
-    console.error('[controller] ' + error);
+    console.error('[controller] %s', error);
   });
 
   client.on('connect', () => {
