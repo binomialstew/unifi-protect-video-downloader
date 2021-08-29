@@ -19,7 +19,6 @@
     "start": "node controller.js"
   },
   "devDependencies": {
-    "dotenv": "~8.2.0",
-    "moment": "latest"
+    "dotenv": "~8.2.0"
   }
 }
