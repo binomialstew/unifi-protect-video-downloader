@@ -96,13 +96,14 @@ const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) =
     if (!cameraDownloadQueue[cameraName]) {
       // timeout to see if new movement is started
       cameraDownloadQueue[cameraName] = setTimeout(() => {
-        console.info('[controller] Motion end event finished; processing video download');
+        const delay = process.env.DOWNLOAD_DELAY || 5000;
+        console.info(`[controller] Motion end event finished; processing video download after ${delay/1000} seconds`);
         if (process.env.NODE_ENV === 'development') {
           console.info(`[controller] Do download for start time: ${readableTime(startTimestamp)}`);
         }
         delete cameraStartTimeByMac[cameraName];
         delete cameraDownloadQueue[cameraName];
-        api.processDownload({ cameraName, start: startTimestamp, end: timestamp });
+        api.processDownload({ cameraName, start: startTimestamp, end: timestamp, delay });
       }, motionRecordingGracePeriod);
     }
 
