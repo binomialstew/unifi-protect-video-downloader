@@ -85,9 +85,9 @@ module.exports = class Api {
             if (e.response && e.response.status === 401 && this.retries < 5) {
                 console.info(`[api] not authorized - reauthenticate attempt # ${this.retries}`);
                 this.retries = this.retries + 1;
-                await this.authenticate();
+                const newToken = await this.authenticate();
                 console.info('[api] now authenticated - reattempting get camera name');
-                await this.getCameraFromMac({ token, mac });
+                await this.getCameraFromMac({ token: newToken, mac });
             } else {
                 this.retries = 0;
                 console.error('[api] unable to get camera from mac', e);
