@@ -25,7 +25,7 @@ const cameraStartTimeByMac = {};
 const cameraDownloadQueue = {};
 const motionRecordingGracePeriod = process.env.MOTION_GRACE_PERIOD || 10000;
 
-const cameraNames = (process.env.CAMERAS &&
+const cameraMacs = (process.env.CAMERAS &&
   process.env.CAMERAS.split(',').map(camera => camera.trim().toLowerCase().replace(/\s/g, '_'))) || [];
 
 try {
@@ -47,9 +47,9 @@ try {
     console.info('[controller] Connected to home automation mqtt broker');
     client.publish('unifi/protect-downloader/availability', 'online', { qos: 1, retain: true });
 
-    if (cameraNames.length > 0) {
-      console.info('[controller] Subscribing to motion events for cameras: %s', cameraNames.join(', '));
-      cameraNames.map(cameraName => client.subscribe(`unifi/camera/${cameraName}`));
+    if (cameraMacs.length > 0) {
+      console.info('[controller] Subscribing to motion events for cameras: %s', cameraMacs.join(', '));
+      cameraMacs.map(cameraMac => client.subscribe(`unifi/camera/${cameraMac}`));
     } else {
       console.info('[controller] Subscribing to motion events for all cameras');
       client.subscribe('unifi/camera/#');
@@ -62,10 +62,10 @@ try {
     }
     if (topic.startsWith('unifi/camera/')) {
       const splitMessage = topic.split('unifi/camera/')[1].split('/');
-      const cameraName = splitMessage[0];
+      const cameraMac = splitMessage[0];
       const isMotionDetected = message.toString();
       const timestamp = Date.now();
-      return processMotionEvent({ isMotionDetected, cameraName, timestamp });
+      return processMotionEvent({ isMotionDetected, cameraMac, timestamp });
     }
     console.warn('[controller] No handler for topic: %s: %s', topic, message);
   });
@@ -86,40 +86,40 @@ try {
   console.error('[api] %s', error);
 }
 
-const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) => {
+const processMotionEvent = async ({ isMotionDetected, cameraMac, timestamp }) => {
   if (process.env.VERBOSE) {
     console.info('[controller] Processing motion event with status: %s', isMotionDetected);
   }
   if (isMotionDetected === 'true') {
     console.info('[controller] Processing motion start event');
-    if (cameraDownloadQueue[cameraName]) {
+    if (cameraDownloadQueue[cameraMac]) {
       console.info('[controller] Found previous motion event; resetting timer');
-      clearTimeout(cameraDownloadQueue[cameraName]);
-      delete cameraDownloadQueue[cameraName];
-    } else if (!cameraStartTimeByMac[cameraName]) {
-      cameraStartTimeByMac[cameraName] = timestamp;
+      clearTimeout(cameraDownloadQueue[cameraMac]);
+      delete cameraDownloadQueue[cameraMac];
+    } else if (!cameraStartTimeByMac[cameraMac]) {
+      cameraStartTimeByMac[cameraMac] = timestamp;
       if (process.env.VERBOSE) {
         console.info('[controller] Set start time: %s', readableTime(timestamp));
       }
     }
 
-  } else if (cameraStartTimeByMac[cameraName] && isMotionDetected === 'false') {
+  } else if (cameraStartTimeByMac[cameraMac] && isMotionDetected === 'false') {
     console.info('[controller] Processing motion end event');
-    const startTimestamp = cameraStartTimeByMac[cameraName];
+    const startTimestamp = cameraStartTimeByMac[cameraMac];
     if (!startTimestamp) {
       return;
     }
-    if (!cameraDownloadQueue[cameraName]) {
+    if (!cameraDownloadQueue[cameraMac]) {
       // timeout to see if new movement is started
-      cameraDownloadQueue[cameraName] = setTimeout(() => {
+      cameraDownloadQueue[cameraMac] = setTimeout(() => {
         const delay = process.env.DOWNLOAD_DELAY || 5000;
         console.info('[controller] Motion end event finished; processing video download after %s seconds', delay/1000);
         if (process.env.VERBOSE) {
           console.info('[controller] Do download for start time: %s', readableTime(startTimestamp));
         }
-        delete cameraStartTimeByMac[cameraName];
-        delete cameraDownloadQueue[cameraName];
-        downloadApi.processDownload({ mac: cameraName, start: startTimestamp, end: timestamp, delay });
+        delete cameraStartTimeByMac[cameraMac];
+        delete cameraDownloadQueue[cameraMac];
+        downloadApi.processDownload({ mac: cameraMac, start: startTimestamp, end: timestamp, delay });
       }, motionRecordingGracePeriod);
     }
   }
