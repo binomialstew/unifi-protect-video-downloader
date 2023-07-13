@@ -4,11 +4,11 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 require("log-timestamp");
-
 const mqtt = require('mqtt');
+const logger = require('./logger');
 const Api = require('./api');
 
-console.log('[controller] Verbose mode: %s', process.env.VERBOSE);
+logger.info('[controller] Loglevel is: %s', process.env.LOG_LEVEL);
 
 const readableTime = timestamp => {
   const newDate = new Date();
@@ -40,26 +40,24 @@ try {
     }
   });
   client.on('error', (error) => {
-    console.error('[controller] %s', error);
+    logger.error('[controller] %s', error);
   });
 
   client.on('connect', () => {
-    console.info('[controller] Connected to home automation mqtt broker');
+    logger.info('[controller] Connected to mqtt broker');
     client.publish('unifi/protect-downloader/availability', 'online', { qos: 1, retain: true });
 
     if (cameraMacs.length > 0) {
-      console.info('[controller] Subscribing to motion events for cameras: %s', cameraMacs.join(', '));
+      logger.info('[controller] Subscribing to motion events for cameras: %s', cameraMacs.join(', '));
       cameraMacs.map(cameraMac => client.subscribe(`unifi/camera/${cameraMac}/motion`));
     } else {
-      console.info('[controller] Subscribing to motion events for all cameras');
+      logger.info('[controller] Subscribing to motion events for all cameras');
       client.subscribe('unifi/camera/+/motion');
     }
   });
 
   client.on('message', (topic, message) => {
-    if (process.env.VERBOSE) {
-      console.info('[controller] Received message for topic: %s: %s', topic, message);
-    }
+    logger.verbose('[controller] Received message for topic: %s: %s', topic, message);
     if (topic.startsWith('unifi/camera/')) {
       const splitMessage = topic.split('unifi/camera/')[1].split('/');
       const cameraMac = splitMessage[0];
@@ -67,10 +65,10 @@ try {
       const timestamp = Date.now();
       return processMotionEvent({ isMotionDetected, cameraMac, timestamp });
     }
-    console.warn('[controller] No handler for topic: %s: %s', topic, message);
+    logger.warn('[controller] No handler for topic: %s: %s', topic, message);
   });
 } catch(error) {
-  console.error('[controller] %s', error);
+  logger.error('[controller] %s', error);
 }
 
 let downloadApi;
@@ -83,28 +81,24 @@ try {
     downloadPath: process.env.DOWNLOAD_PATH
   });
 } catch (error) {
-  console.error('[api] %s', error);
+  logger.error('[api] %s', error);
 }
 
 const processMotionEvent = async ({ isMotionDetected, cameraMac, timestamp }) => {
-  if (process.env.VERBOSE) {
-    console.info('[controller] Processing motion event with status: %s', isMotionDetected);
-  }
+  logger.verbose('[controller] Processing motion event with status: %s', isMotionDetected);
   if (isMotionDetected === 'true') {
-    console.info('[controller] Processing motion start event');
+    logger.info('[controller] Processing motion start event');
     if (cameraDownloadQueue[cameraMac]) {
-      console.info('[controller] Found previous motion event; resetting timer');
+      logger.info('[controller] Found previous motion event; resetting timer');
       clearTimeout(cameraDownloadQueue[cameraMac]);
       delete cameraDownloadQueue[cameraMac];
     } else if (!cameraStartTimeByMac[cameraMac]) {
       cameraStartTimeByMac[cameraMac] = timestamp;
-      if (process.env.VERBOSE) {
-        console.info('[controller] Set start time: %s', readableTime(timestamp));
-      }
+      logger.verbose('[controller] Set start time: %s', readableTime(timestamp));
     }
 
   } else if (cameraStartTimeByMac[cameraMac] && isMotionDetected === 'false') {
-    console.info('[controller] Processing motion end event');
+    logger.info('[controller] Processing motion end event');
     const startTimestamp = cameraStartTimeByMac[cameraMac];
     if (!startTimestamp) {
       return;
@@ -113,10 +107,8 @@ const processMotionEvent = async ({ isMotionDetected, cameraMac, timestamp }) =>
       // timeout to see if new movement is started
       cameraDownloadQueue[cameraMac] = setTimeout(() => {
         const delay = process.env.DOWNLOAD_DELAY || 5000;
-        console.info('[controller] Motion end event finished; processing video download after %s seconds', delay/1000);
-        if (process.env.VERBOSE) {
-          console.info('[controller] Do download for start time: %s', readableTime(startTimestamp));
-        }
+        logger.info('[controller] Motion end event finished; processing video download after %s seconds', delay/1000);
+        logger.verbose('[controller] Do download for start time: %s', readableTime(startTimestamp));
         delete cameraStartTimeByMac[cameraMac];
         delete cameraDownloadQueue[cameraMac];
         downloadApi.processDownload({ mac: cameraMac, start: startTimestamp, end: timestamp, delay });

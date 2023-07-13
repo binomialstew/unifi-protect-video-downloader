@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const promisify = require('util').promisify;
 const sleep = promisify(setTimeout);
+const logger = require('./logger');
 
 const request = axios.create({
     httpsAgent: new https.Agent({
@@ -28,6 +29,7 @@ module.exports = class Api {
 
         try {
             const camera = await this.getCameraFromMac({ token, mac });
+            logger.debug(`[api] process download for camera: ${JSON.stringify(camera, null, 4)}`);
             const {
                 id,
                 name,
@@ -46,7 +48,7 @@ module.exports = class Api {
                 start += 1 + (10 * 60 * 1000);
             }
         } catch (e) {
-            console.error('[api] unable to process download', e);
+            logger.error('[api] unable to process download', e);
         }
     }
 
@@ -83,14 +85,14 @@ module.exports = class Api {
             return camera
         } catch (e) {
             if (e.response && e.response.status === 401 && this.retries < 5) {
-                console.info(`[api] not authorized - reauthenticate attempt # ${this.retries}`);
+                logger.warn(`[api] not authorized - reauthenticate attempt # ${this.retries}`);
                 this.retries = this.retries + 1;
                 const newToken = await this.authenticate();
-                console.info('[api] now authenticated - reattempting get camera name');
+                logger.warn('[api] now authenticated - reattempting get camera name');
                 await this.getCameraFromMac({ token: newToken, mac });
             } else {
                 this.retries = 0;
-                console.error('[api] unable to get camera from mac', e);
+                logger.error('[api] unable to get camera from mac', e);
             }
         }
     }
@@ -109,18 +111,14 @@ module.exports = class Api {
 
         const filePath = path.resolve(this.downloadPath, camera.name, year, month, day);
         const fileName = `${year}-${month}-${day}_${hour}.${minute}_${start}.mp4`;
-        console.info('[api] writing to file path: %s/%s', filePath, fileName);
+        logger.info('[api] writing to file path: %s/%s', filePath, fileName);
 
         try {
             await fs.promises.access(filePath);
         } catch (e) {
-            if (process.env.VERBOSE) {
-                console.info('[api] Directory doesn\'t exist - create it');
-            }
+            logger.debug('[api] Directory doesn\'t exist - create it');
             const didCreateDirectory = await fs.promises.mkdir(filePath, { recursive: true });
-            if (process.env.VERBOSE) {
-                console.info('[api] Successfully created directory: %s', didCreateDirectory);
-            }
+            logger.verbose('[api] Successfully created directory: %s', didCreateDirectory);
         }
 
         const writer = fs.createWriteStream(`${filePath}/${fileName}`);
@@ -130,10 +128,10 @@ module.exports = class Api {
         let response;
         try {
             const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`
-            console.info(`[api] Video download url: ${url}`);
+            logger.info(`[api] Video download url: ${url}`);
             response = await request.get(url, requestConfig);
         } catch (e) {
-            console.error('[api] Unable to download video', e);
+            logger.error('[api] Unable to download video', e);
             return;
         }
 
@@ -141,11 +139,11 @@ module.exports = class Api {
 
         return new Promise((resolve, reject) => {
             writer.on('finish', function() {
-                console.info('[api] Write success');
+                logger.info('[api] Write success');
                 resolve();
             });
             writer.on('error', function(error) {
-                console.error('[api] Error: %s', error);
+                logger.error('[api] Error: %s', error);
                 reject();
             });
         });
