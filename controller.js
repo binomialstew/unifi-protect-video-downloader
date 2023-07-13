@@ -49,10 +49,10 @@ try {
 
     if (cameraMacs.length > 0) {
       console.info('[controller] Subscribing to motion events for cameras: %s', cameraMacs.join(', '));
-      cameraMacs.map(cameraMac => client.subscribe(`unifi/camera/${cameraMac}`));
+      cameraMacs.map(cameraMac => client.subscribe(`unifi/camera/${cameraMac}/motion`));
     } else {
       console.info('[controller] Subscribing to motion events for all cameras');
-      client.subscribe('unifi/camera/#');
+      client.subscribe('unifi/camera/+/motion');
     }
   });
 
