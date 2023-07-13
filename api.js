@@ -21,19 +21,22 @@ module.exports = class Api {
         this.retries = 0;
     }
 
-    async processDownload({ cameraName, start, end, delay }) {
+    async processDownload({ mac, start, end, delay }) {
         const token = this.token || await this.authenticate();
+
         await sleep(delay); // Allow unifi time to save video before initiating download
+
         try {
+            const camera = await this.getCameraFromMac({ token, mac });
             const {
                 id,
-                mac,
                 name,
                 recordingSettings: {
                     prePaddingSecs,
                     postPaddingSecs
                 }
-            } = await this.getCameraFromName({token, cameraName});
+            } = camera;
+
             while (start < end) {
                 // break up videos longer than 10 minutes
                 const calculatedEnd = Math.min(end + postPaddingSecs * 1000, start + (10 * 60 * 1000));
@@ -43,7 +46,7 @@ module.exports = class Api {
                 start += 1 + (10 * 60 * 1000);
             }
         } catch (e) {
-            console.log('[api] unable to process download', e);
+            console.error('[api] unable to process download', e);
         }
     }
 
@@ -60,10 +63,7 @@ module.exports = class Api {
         return response.headers['set-cookie'];
     }
 
-    /**
-     *
-     */
-    async getCameraFromName({token, cameraName}) {
+    async getCameraFromMac({ token, mac }) {
 
         const headers = {
             'Content-Type': 'application/json',
@@ -75,22 +75,22 @@ module.exports = class Api {
             const response = await request.get(`${this.host}/proxy/protect/api/cameras`, requestConfig);
             this.retries = 0;
 
-            const camera = response.data.find(cam => cam.name.replace(/ /g, "_").toLowerCase() === cameraName);
+            const camera = response.data.find(cam => cam.mac === mac);
 
             if (!camera) {
-                throw new Error('Unable to find camera with name: ' + cameraName, response);
+                throw new Error('Unable to find camera with mac: ' + mac, response);
             }
             return camera
         } catch (e) {
-            if (e.response.status === 401 && this.retries < 5) {
+            if (e.response && e.response.status === 401 && this.retries < 5) {
                 console.info(`[api] not authorized - reauthenticate attempt # ${this.retries}`);
                 this.retries = this.retries + 1;
                 await this.authenticate();
                 console.info('[api] now authenticated - reattempting get camera name');
-                await this.getCameraFromName({ token, cameraName });
+                await this.getCameraFromMac({ token, mac });
             } else {
                 this.retries = 0;
-                console.error('[api] unable to get camera name', e);
+                console.error('[api] unable to get camera from mac', e);
             }
         }
     }

@@ -16,7 +16,7 @@ const readableTime = timestamp => {
   const dateString = newDate.toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'long',
-    timeZone: process.env.TIMEZONE || 'America/New_York'
+    timeZone: process.env.TZ || 'America/New_York'
   });
   return dateString;
 }
@@ -49,10 +49,10 @@ try {
 
     if (cameraNames.length > 0) {
       console.info('[controller] Subscribing to motion events for cameras: %s', cameraNames.join(', '));
-      cameraNames.map(cameraName => client.subscribe(`unifi/camera/motion/${cameraName}`));
+      cameraNames.map(cameraName => client.subscribe(`unifi/camera/${cameraName}`));
     } else {
       console.info('[controller] Subscribing to motion events for all cameras');
-      client.subscribe('unifi/camera/motion/#');
+      client.subscribe('unifi/camera/#');
     }
   });
 
@@ -60,14 +60,12 @@ try {
     if (process.env.VERBOSE) {
       console.info('[controller] Received message for topic: %s: %s', topic, message);
     }
-    if (topic.startsWith('unifi/camera/motion/')) {
-      const splitMessage = topic.split('unifi/camera/motion/')[1].split('/');
+    if (topic.startsWith('unifi/camera/')) {
+      const splitMessage = topic.split('unifi/camera/')[1].split('/');
       const cameraName = splitMessage[0];
       const isMotionDetected = message.toString();
-      if (isMotionDetected === '0' || isMotionDetected === '1' ) {
-        const timestamp = Date.now();
-        return processMotionEvent({ isMotionDetected, cameraName, timestamp });
-      }
+      const timestamp = Date.now();
+      return processMotionEvent({ isMotionDetected, cameraName, timestamp });
     }
     console.warn('[controller] No handler for topic: %s: %s', topic, message);
   });
@@ -92,7 +90,7 @@ const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) =
   if (process.env.VERBOSE) {
     console.info('[controller] Processing motion event with status: %s', isMotionDetected);
   }
-  if (isMotionDetected === '1') {
+  if (isMotionDetected === 'true') {
     console.info('[controller] Processing motion start event');
     if (cameraDownloadQueue[cameraName]) {
       console.info('[controller] Found previous motion event; resetting timer');
@@ -105,7 +103,7 @@ const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) =
       }
     }
 
-  } else if (cameraStartTimeByMac[cameraName] && isMotionDetected === '0') {
+  } else if (cameraStartTimeByMac[cameraName] && isMotionDetected === 'false') {
     console.info('[controller] Processing motion end event');
     const startTimestamp = cameraStartTimeByMac[cameraName];
     if (!startTimestamp) {
@@ -121,7 +119,7 @@ const processMotionEvent = async ({ isMotionDetected, cameraName, timestamp }) =
         }
         delete cameraStartTimeByMac[cameraName];
         delete cameraDownloadQueue[cameraName];
-        downloadApi.processDownload({ cameraName, start: startTimestamp, end: timestamp, delay });
+        downloadApi.processDownload({ mac: cameraName, start: startTimestamp, end: timestamp, delay });
       }, motionRecordingGracePeriod);
     }
   }
