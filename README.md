@@ -15,6 +15,7 @@ This will listen for motion events triggered from the unifi protect mqtt motion 
    * `CAMERAS`: Optional - filter to only record camera with these names, e.g. 'Front Door, Driveway'
    * `VERBOSE`: Optional - enable verbose logging
    * `MOTION_GRACE_PERIOD`: Optional (in milliseconds) - the time to wait before ending recording period. If motion is detected in this time, it will be included in the initial download
+   * `TZ`: Your time zone in IANA format. Default is `America/New_York`
 
 ## Unifi user account creation
 

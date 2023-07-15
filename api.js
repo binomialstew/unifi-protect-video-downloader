@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const promisify = require('util').promisify;
 const sleep = promisify(setTimeout);
-const logger = require('./logger');
+const logger = require('./logger')(module);
 
 const request = axios.create({
     httpsAgent: new https.Agent({
@@ -14,6 +14,7 @@ const request = axios.create({
 
 module.exports = class Api {
     constructor({host, username, password, downloadPath}) {
+        logger.debug('Loaded download API');
         this.host = host;
         this.username = username;
         this.password = password;
@@ -29,7 +30,7 @@ module.exports = class Api {
 
         try {
             const camera = await this.getCameraFromMac({ token, mac });
-            logger.debug(`[api] process download for camera: ${JSON.stringify(camera, null, 4)}`);
+            logger.debug(`process download for camera: ${JSON.stringify(camera, null, 4)}`);
             const {
                 id,
                 name,
@@ -48,7 +49,7 @@ module.exports = class Api {
                 start += 1 + (10 * 60 * 1000);
             }
         } catch (e) {
-            logger.error('[api] unable to process download', e);
+            logger.error('unable to process download', e);
         }
     }
 
@@ -66,7 +67,6 @@ module.exports = class Api {
     }
 
     async getCameraFromMac({ token, mac }) {
-
         const headers = {
             'Content-Type': 'application/json',
             'Cookie': token
@@ -85,14 +85,16 @@ module.exports = class Api {
             return camera
         } catch (e) {
             if (e.response && e.response.status === 401 && this.retries < 5) {
-                logger.warn(`[api] not authorized - reauthenticate attempt # ${this.retries}`);
+                logger.warn(`not authorized - reauthenticate attempt # ${this.retries}`);
                 this.retries = this.retries + 1;
                 const newToken = await this.authenticate();
-                logger.warn('[api] now authenticated - reattempting get camera name');
-                await this.getCameraFromMac({ token: newToken, mac });
+                logger.warn('now authenticated - reattempting get camera name');
+                logger.debug(`Using token: ${newToken}`);
+                logger.debug(`Using mac: ${mac}`);
+                return await this.getCameraFromMac({ token: newToken, mac });
             } else {
                 this.retries = 0;
-                logger.error('[api] unable to get camera from mac', e);
+                logger.error('unable to get camera from mac', e);
             }
         }
     }
@@ -111,14 +113,14 @@ module.exports = class Api {
 
         const filePath = path.resolve(this.downloadPath, camera.name, year, month, day);
         const fileName = `${year}-${month}-${day}_${hour}.${minute}_${start}.mp4`;
-        logger.info('[api] writing to file path: %s/%s', filePath, fileName);
+        logger.info(`writing to file path: ${filePath} ${fileName}`);
 
         try {
             await fs.promises.access(filePath);
         } catch (e) {
-            logger.debug('[api] Directory doesn\'t exist - create it');
+            logger.debug('Directory doesn\'t exist - create it');
             const didCreateDirectory = await fs.promises.mkdir(filePath, { recursive: true });
-            logger.verbose('[api] Successfully created directory: %s', didCreateDirectory);
+            logger.verbose(`Successfully created directory: ${didCreateDirectory}`);
         }
 
         const writer = fs.createWriteStream(`${filePath}/${fileName}`);
@@ -128,10 +130,10 @@ module.exports = class Api {
         let response;
         try {
             const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`
-            logger.info(`[api] Video download url: ${url}`);
+            logger.info(`Video download url: ${url}`);
             response = await request.get(url, requestConfig);
-        } catch (e) {
-            logger.error('[api] Unable to download video', e);
+        } catch (error) {
+            logger.error(`Unable to download video: ${error}`);
             return;
         }
 
@@ -139,11 +141,11 @@ module.exports = class Api {
 
         return new Promise((resolve, reject) => {
             writer.on('finish', function() {
-                logger.info('[api] Write success');
+                logger.info('Write success');
                 resolve();
             });
             writer.on('error', function(error) {
-                logger.error('[api] Error: %s', error);
+                logger.error(error);
                 reject();
             });
         });
