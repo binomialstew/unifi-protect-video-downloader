@@ -143,6 +143,7 @@ module.exports = class Api {
 
     let response;
     try {
+      logger.debug(`Download with token: ${token}`);
       const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`;
       logger.info(`Video download url: ${url}`);
       response = await request.get(url, requestConfig);
