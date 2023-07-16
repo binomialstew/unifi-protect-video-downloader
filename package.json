@@ -2,6 +2,10 @@
   "name": "unifi-protect-video-downloader",
   "version": "1.2.0",
   "description": "Node service for processing unifi protect mqtt motion events and triggering a download",
+  "engines": {
+    "npm": ">=9.5.0",
+    "node": ">=18.16.0"
+  },
   "author": "Charles Lehnert <Charles@CLLInteractive.com>",
   "license": "ISC",
   "repository": {
@@ -19,6 +23,10 @@
     "start": "node controller.js"
   },
   "devDependencies": {
-    "dotenv": "~8.2.0"
+    "dotenv": "~8.2.0",
+    "eslint": "^8.45.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-node": "^4.1.0",
+    "eslint-plugin-node": "^11.1.0"
   }
 }

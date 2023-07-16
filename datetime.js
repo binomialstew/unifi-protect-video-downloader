@@ -15,29 +15,23 @@ const formatDateTime = (time) => {
     second: 'numeric',
     timeZoneName: 'short',
     hour12: false,
-    timeZone
+    timeZone,
   };
 
-  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const formatter = new Intl.DateTimeFormat(locale, options);
   const [
-    { value: month },
-    ,
-    { value: day },
-    ,
-    { value: year },
-    ,
-    { value: hour },
-    ,
-    { value: minute },
-    ,
-    { value: seconds },
-    ,
+    { value: month },,
+    { value: day },,
+    { value: year },,
+    { value: hour },,
+    { value: minute },,
+    { value: seconds },,
     { value: zone },
   ] = formatter.formatToParts(date);
 
   const formattedDate = `${year} ${month} ${day} - ${hour}:${minute}:${seconds} ${zone}`;
 
   return formattedDate;
-}
+};
 
 module.exports = formatDateTime;
