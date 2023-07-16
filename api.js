@@ -4,7 +4,9 @@ const path = require('path');
 const fs = require('fs');
 const promisify = require('util').promisify;
 const sleep = promisify(setTimeout);
-const logger = require('./logger')(module);
+const winston = require('./logger');
+
+const logger = winston.child({ namespace: 'download api' });
 
 const request = axios.create({
     httpsAgent: new https.Agent({

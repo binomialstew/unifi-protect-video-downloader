@@ -2,11 +2,12 @@ if (process.env.NODE_ENV === 'development') {
   const dotenv = require('dotenv');
   dotenv.config();
 }
-
 const mqtt = require('mqtt');
-const logger = require('./logger')(module);
+const winston = require('./logger');
 const Api = require('./api');
 const formatDateTime = require('./datetime');
+
+const logger = winston.child({ namespace: 'controller' });
 
 logger.info(`Log level is: ${process.env.LOG_LEVEL}`);
 
