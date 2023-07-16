@@ -16,9 +16,7 @@ const request = axios.create({
 });
 
 module.exports = class Api {
-  constructor({
-    host, username, password, downloadPath,
-  }) {
+  constructor({ host, username, password, downloadPath }) {
     logger.debug('Loaded download API');
     this.host = host;
     this.username = username;
@@ -28,9 +26,7 @@ module.exports = class Api {
     this.retries = 0;
   }
 
-  async processDownload({
-    mac, start, end, delay,
-  }) {
+  async processDownload({ mac, start, end, delay }) {
     const token = this.token || await this.authenticate();
 
     await sleep(delay); // Allow unifi time to save video before initiating download
@@ -111,9 +107,7 @@ module.exports = class Api {
     }
   }
 
-  async downloadVideo({
-    token, camera, start, end,
-  }) {
+  async downloadVideo({ token, camera, start, end }) {
     const headers = {
       'Content-Type': 'application/json',
       Cookie: token,

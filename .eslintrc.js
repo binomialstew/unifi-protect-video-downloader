@@ -22,4 +22,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 'latest',
   },
+  rules: {
+    'max-len': ['error', { code: 120 }],
+    'object-curly-newline': ['error', { consistent: true }],
+  },
 };
