@@ -7,6 +7,7 @@ WORKDIR /app
 COPY . .
 
 ENV TZ=America/New_York
+ENV LOG_LEVEL=info
 
 RUN apt-get update && \
 apt-get install -y tzdata && \
