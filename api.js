@@ -24,6 +24,7 @@ module.exports = class Api {
     this.downloadPath = downloadPath;
     this.token = null;
     this.retries = 0;
+    this.downloadRetries = 0;
   }
 
   async processDownload({ mac, start, end, delay }) {
@@ -141,9 +142,26 @@ module.exports = class Api {
       const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`;
       logger.info(`Video download url: ${url}`);
       response = await request.get(url, requestConfig);
+      logger.debug('Download successful - reset retries');
+      this.downloadRetries = 0;
     } catch (error) {
+      logger.debug('Download error:');
+      logger.debug(`Status: ${error.response.status}`);
+      if (error.response && error.response.status === 401 && this.downloadRetries < 5) {
+        this.downloadRetries += 1;
+        logger.warn('Download unsuccessful due to authentication - increment retries and try again');
+        logger.warn(`Now on retry number ${this.downloadRetries}`);
+        // For some reason, unifi is intermittently not allowing download with a recently generated token
+        // We reauthenticate to generate token immediately before reattempting download
+        const newToken = await this.authenticate();
+        this.downloadVideo({
+          token: newToken, camera, start, end,
+        });
+      } else {
+        this.downloadRetries = 0;
+      }
       logger.error(`Unable to download video: ${error}`);
-      return;
+      return; // Prevents the data write below because there is none
     }
 
     response.data.pipe(writer);
@@ -152,6 +170,7 @@ module.exports = class Api {
       logger.info('Write success');
     });
     writer.on('error', (error) => {
+      logger.debug('Writer error:');
       logger.error(error);
     });
   }
