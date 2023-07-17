@@ -142,8 +142,10 @@ module.exports = class Api {
       const url = `${this.host}/proxy/protect/api/video/export?start=${start}&end=${end}&camera=${camera.id}`;
       logger.info(`Video download url: ${url}`);
       response = await request.get(url, requestConfig);
-      logger.debug('Download successful - reset retries');
-      this.downloadRetries = 0;
+      if (this.downloadRetries > 0) {
+        logger.info(`Download successful after ${this.downloadRetries} attempts - reset retries`);
+        this.downloadRetries = 0;
+      }
     } catch (error) {
       logger.debug('Download error:');
       logger.debug(`Status: ${error.response.status}`);
